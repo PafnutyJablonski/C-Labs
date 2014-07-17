@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 typedef struct{
     int a, b;
@@ -56,10 +57,10 @@ int egcd(int a ,int b, int *x, int *y){
 
 int main(void){
     FILE *f1, *f2;
-    int i, i0, i1, i2, inword = 0, j, k1, k2, l, n = 1, t, t1, t2;
+    int i, i0, i1, i2, inword = 0, j, k1, k2, l, n = 1, t, t1, t2, z;
     int *K, *L ;
-    int lmin = 0;
-    t_solv *mset;
+    int lmin;
+    t_solv *mset, *tmp;
     t_solv s1, s2, u1, u2;
 
     // Read from file
@@ -85,11 +86,14 @@ int main(void){
         printf("cant allocate memory");
         return 0;
     }
+    if((tmp = (t_solv*)malloc(n * sizeof(t_solv))) == NULL){
+        printf("cant allocate memory");
+        return 0;
+    }
     i = 0;
     fseek(f1, 0, SEEK_SET);
     do switch(fgetc(f1)) {
-        case '\0':
-        case '\t': case '\n': case '\r':
+        case '\n':
             if (inword) {
                 inword = 0;
                 ++K[i];
@@ -102,12 +106,20 @@ int main(void){
                 ++(K[i]);
             }
             break;
+        case EOF:
+            if (inword) {
+                inword = 0;
+                ++K[i];
+            }
+            ++i;
+            break;
         default:
             inword = 1;
             ++(L[i]);
     } while(!feof(f1));
 
     // Find minlength of a string
+    lmin = 0;
     for(i = 0; i < n; ++i){
         lmin = (lmin < L[i])?(L[i]):(lmin);
     }
@@ -149,23 +161,45 @@ int main(void){
             printf(" no solution \n");
         return 0;
         }
+        z = - (s1.a + u2.a * s1.b) / (u2.b * s1.b);
+        u1.a = z * u1.b + u1.a;
+        u2.a = z * u2.b + u2.a;
         s2.a += u2.a * s2.b;
         s2.b *= u2.b;
         s1.a += u2.a * s1.b;
         s1.b *= u2.b;
-        //mset[i1] = s1;
+        mset[i1] = s1;
         mset[i2] = s2;
-        for(j = i1; j >= 0; --j){
+        tmp[i1].a = u1.a;
+        tmp[i1].b = u1.b;
+        /*for(j = i1-1; j >= 0; --j){
             if(K[j] < 2) continue;
-            mset[j].a = u1.a * mset[j].b;
-            mset[j].b = u1.b;
-        }
+            mset[j].a += u1.a * mset[j].b;
+            mset[j].b *= u1.b;
+        }*/
         i1 = i2;
         ++i2;
         while((i2 < n) && (K[i2] < 2)){
             ++i2;
         }
     }
+
+    int q = 1, p = 0;
+    for(i = i1 - 1; i >= 0; --i){
+        if (K[i] < 2) {
+            continue;
+        }
+        mset[i].a += p * mset[i].b;
+        mset[i].b *= q;
+        p = tmp[i].a + p * tmp[i].b;
+        q = q * tmp[i].b;
+        i2 = i1;
+    }
+
+
+    /*for(i = 0; i < n; ++i){
+        printf("%i: %i %i\n", i, mset[i].a, mset[i].b);
+    }*/
 
     for(i = 0; i < n; ++i){
         if(K[i] < 2) continue;
@@ -192,29 +226,28 @@ int main(void){
         }
     }
 
-    for(i = 0; i < n; ++i){
-        if(K[i] < 2) continue;
-        printf("%i: %i\n", i, L[i] + (mset[i].a + t * mset[i].b) * (K[i] - 1)) ;
-    }
-
     // Write output
     if((f2 = fopen("output.txt", "wt")) == NULL){
         printf("cant open file");
         return 0;
     }
     fseek(f1, 0, SEEK_SET);
-    i = inword = 0;
+    i = i0 = inword = 0;
     do switch(l = fgetc(f1)) {
-        case '\0':
-        case '\t': case '\n': case '\r':
+        case '\n':
             ++i;
             fputc('\n', f2);
+            inword = 0;
+            i0 = 0;
             break;
         case ' ':
             if (inword) {
                 inword = 0;
+                ++i0;
+                if(K[i] > i0){
                 for(j = 0; j < (mset[i].a + t * mset[i].b); ++j){
                     fputc(' ', f2);
+                    }
                 }
             }
             break;
@@ -237,7 +270,7 @@ L[i] - суммарная длинна слов строки
 M[i] - количество пробелов между 2мя любыми словами - целые, > 0,  L[i] + M[i](K[i] - 1) >= L[min]; L[min] = max[i]{L[i]};
  длина каждой строки больше L[min]; необх. усл.
 L[i] + M[i](K[i] - 1) = const - длина строки; длина каждой строки
-M[i](K[i] - 1) - M[i+1](K[i+1] - 1) = L[i+1] - L[i]
+M[i](K[i] - 1) - M[i+1](K[i+1] - 1) = L[i+1] - L[i] - приравниваем длину и - строки с длиной и+1 - строки
 
 kappa[i] = K[i]-1;
 lambda[i] = L[i+1] - L[i];
@@ -272,8 +305,46 @@ t[min] = max{t[i]}
 M[i](t[min]) - искомый ответ
 
 t[l] = t[0] + S[i] * l;
-tau[l] = tau[0] sigma[i] * l;
+tau[l] = tau[0] + sigma[i] * l;
 Mi[i+1](t[l]) = (C[i] + t[0] * D[i]) +l * S[i] * D[i];
 Mi+1[i+1](tau[l]) = (A[i+1] + tau[0] * B[i+1]) + l * G[i] * B[i+1];
+(t[l], tau[l]): Mi[i+1](t[l]) = Mi+1[i+1](tau[l]);
+C[i] +t * D[i] = A[i+1] + tau * B[i+1];
+t * D[i] - tau * B[i+1] = A[i+1] - C[i];
+M[i] = Mi[i+1] пересечение Mi+1[i+1] = M[i+1](t[l]) = (C[i] + t[0] * D[i]) +l * S[i] * D[i] - параметризуем пересечение множеств по l
+
+Algo:
+1) kappa[1] * M[1] - kappa[2] * M[2] = lambda[1];
+    M1[1]{t) = A[1] + t * B[1]
+    M1[2](t) = C[1] + t * D[1]; - найдем мно-во М1 и М2 удовлетворяющих уравнению
+2) for(i = 2; i < n)
+    kappa[i] * M[i] - kappa[i+1] * M[i+1] = lambda[i];
+        Mi[i](t) = A[i] + t * B[i]
+        Mi[i+1](t) = C[i] + t * D[i]
+   M[i] = Mi-1[i] пересечение Mi[i] - найти пересечение
+   (t[l], tau[l]): Mi-1[i](tau[l]) = Mi[i](t[l]) => tau * B[i] - t * D[i-1] = A[i] - C[i-1];
+        t[l] = t[0] + l * S
+        tau[l] = tau[0] + l * sigma
+   M[i](l) = Mi-1[i](t[l]) = (C[i-1] + t[0] * D[i-1]) + l * S * D[i-1]
+             Mi[i](tau[l]) = (A[i] + tau[0] * B[i]) + l * sigma * B[i]
+   M[i+1] = Mi[i+1](tau[l]) = (C[i] + tau[0] * D[i]) l * sigma D[i] - пересчёт вышестояших множеств
+   for(j = 1; j < i)
+       M[j](l) = M[j](t[l]) = (A[j] + t[0] * B[j]) + j * S * B[j]
+3) for(i = 1; i <= n)
+       t1[i] min{t: M[i](t) > 0}, t2[i] = min{t: L[i] + M[i](t) * (K[i] -1) >= L[min]}
+       t[i] = max{t1[i], t2[i]}
+4) t[min] = max{t[i]}, M[i](t[min])
+
+A[i] - смещение
+B[i] - шаг множества
+
+M[1](t) = A[1] + t * B[1] => M[1](l) = (A[1] + t[0] * B[1]) + l * S[2] * B[1]
+M[2](t) = C[1] + t * D[1]
+M`[j](l) = ( A[1] + for(j= i+1; j < n){+= t0[j]}(for(k = i+1; k <= j){*= S[k]}) * B[i]) => A`[i] = A[i] + P[i] * B[i]
+B`[i] = (for(j = i+1; j < n){*= S[j]}) * B[i] => B`[i] = Q[i] * B[i]
+Q[i] = S[i+1] * Q[i+1]
+
+<time.h>
+clock();
 
 */
