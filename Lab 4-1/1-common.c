@@ -4,7 +4,7 @@
 
 int find_row(double **A, int n, int i){
     int j = i;
-    while((j < n)&&(A[i][j] == 0)){
+    while((j < n)&&(A[j][i] == 0)){
         ++j;
     }
     return j;
@@ -17,17 +17,24 @@ int main(void){
     double* t;
     scanf("%u", &n);
     double **A = (double**)malloc(n*sizeof(double*));
+    double **B = (double**)malloc(n*sizeof(double*));
     double *R = (double**)malloc(n*sizeof(double*));
     double *f = (double*)malloc(n * sizeof(double));
+    double *f1 = (double*)malloc(n * sizeof(double));
     double *x = (double*)malloc(n * sizeof(double));
     for(i = 0; i < n; ++i){
         A[i] = (double*)malloc(n * sizeof(double));
     }
     for(i = 0; i < n; ++i){
+        B[i] = (double*)malloc(n * sizeof(double));
+    }
+    for(i = 0; i < n; ++i){
             for(j = 0; j < n; ++j){
                 scanf("%lf", &A[i][j]);
+                B[i][j] = A[i][j];
             }
             scanf("%lf", &f[i]);
+            f1[i] = f[i];
     };
     for(i = 0; i < n; ++i){
         if((l = find_row(A, n, i)) >= n){
@@ -49,9 +56,9 @@ int main(void){
     };
     for(i = 0; i < n; ++i){
             for(j = 0; j < n; ++j){
-                printf("%.1lf ", A[i][j]);
+                printf("%.1lf    ", A[i][j]);
             }
-            printf("%.1lf \n", f[i]);
+            printf("%.1lf    \n", f[i]);
     };
     x[n-1] = f[n-1] / A[n-1][n-1];
     for(i = n-1; i >= 0; --i){
@@ -66,13 +73,13 @@ int main(void){
     for(i = 0; i < n; ++i){
         R[i] = 0;
         for(j = 0; j < n; ++j){
-            R[i] += A[i][j] * x[j];
+            R[i] += B[i][j] * x[j];
         }
-        R[i] -= f[i];
+        R[i] -= f1[i];
     }
-    printf("Answer Residual\n");
+    printf("Answer    Residual\n");
     for(i = 0; i < n; ++i){
-        printf("%.1lf %.6lf\n", x[i], R[i]);
+        printf("%e    %e\n", x[i], R[i]);
     }
     return 0;
 };
